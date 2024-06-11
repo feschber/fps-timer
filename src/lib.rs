@@ -296,6 +296,9 @@ impl Timer {
 
         // frames since last log (guaranteed to be at least 1)
         let frames = (self.framecount - self.prev_framecount) as u32;
+        if frames == 0 {
+            return None;
+        }
 
         // avg frametime = duration / (frames in this duration)
         let delta_avg = current.duration_since(self.previous_log) / frames;
