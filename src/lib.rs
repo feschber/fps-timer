@@ -45,6 +45,7 @@ fn sleep_until_high_precision(target: Instant) -> Instant {
     let approx_duration = target.duration_since(now);
 
     // sleep for a maximum of 1ms less than the approximate required delay
+    // (0.250ms on unix)
     #[cfg(unix)]
     const MAX_BUSY_WAIT: Duration = Duration::from_micros(250);
     #[cfg(not(unix))]
@@ -110,7 +111,7 @@ impl Default for Timer {
     fn default() -> Self {
         let now = Instant::now();
         let delta_time = Duration::from_secs_f64(1.0 / 60.);
-        let log_interval = Duration::from_millis(10);
+        let log_interval = Duration::from_millis(100);
         Self {
             framecount: 0,
             log_interval,
