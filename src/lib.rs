@@ -248,7 +248,7 @@ impl Timer {
         let delta_avg = current.duration_since(self.previous_log) / frames;
 
         // set time of current and next log (current time + log interval)
-        self.log_target += self.log_interval;
+        self.log_target = current + self.log_interval;
         self.previous_log = current;
         self.prev_framecount = self.framecount;
 
