@@ -13,8 +13,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let fps = args
         .get(1)
-        .map(|arg| arg.parse().ok())
-        .flatten()
+        .and_then(|arg| arg.parse().ok())
         .unwrap_or(420.69);
 
     let mut timer = Timer::default()
