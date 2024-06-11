@@ -12,6 +12,7 @@ pub struct Timer {
     log_interval: Duration,
     prev_framecount: u64,
     framecount: u64,
+    max_delay_frames: u32,
 }
 
 /// since thread::sleep usually is not accurate down to the millisecond, we
@@ -80,6 +81,7 @@ impl Default for Timer {
             prev_framecount: 0,
             log_target: now + log_interval,
             delta_time,
+            max_delay_frames: 2,
         }
     }
 }
@@ -112,16 +114,35 @@ impl Timer {
         // get current time
         let mut current = Instant::now();
 
-        // wait until target instant if needed
-        if current < self.target {
-            current = sleep_until(self.target);
+        if self.delta_time > Duration::ZERO {
+            // calculate if frame was too late
+            let behind = if current > self.target {
+                current - self.target
+            } else {
+                Duration::ZERO
+            };
+
+            // If the frame is more than `slack` behind,
+            // we update the target to the current time,
+            // scheduling the next frame for `current + delta_time`.
+            //
+            // Otherwise, the next frame is scheduled for
+            // `prev_target + delta_time` to allow the timer to catch up.
+            if behind > self.slack() {
+                self.target = current;
+            }
+
+            // wait until target instant if needed
+            if current < self.target {
+                current = sleep_until(self.target);
+            }
+
+            // update target time
+            self.target += self.delta_time;
         }
 
-        // duration since last frame
+        // calculate frame_time and update previous time
         let frame_time = current.duration_since(self.previous);
-
-        // update target time and actual time
-        self.target += self.delta_time;
         self.previous = current;
         frame_time
     }
@@ -145,5 +166,9 @@ impl Timer {
         self.prev_framecount = self.framecount;
 
         Some(Log { delta_avg })
+    }
+
+    fn slack(&self) -> Duration {
+        self.max_delay_frames * self.delta_time
     }
 }
