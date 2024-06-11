@@ -87,11 +87,13 @@ impl Default for Timer {
 impl Timer {
     pub fn log_interval(mut self, log_interval: Duration) -> Self {
         self.log_interval = log_interval;
+        self.log_target = self.previous + log_interval;
         self
     }
 
     pub fn frame_time(mut self, delta: Duration) -> Self {
         self.delta_time = delta;
+        self.target = self.previous + delta;
         self
     }
 
