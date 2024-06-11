@@ -98,7 +98,11 @@ impl Timer {
     }
 
     pub fn fps(self, fps: f64) -> Self {
-        self.frame_time(Duration::from_secs_f64(1. / fps))
+        let duration = match fps {
+            0. => Duration::ZERO,
+            fps => Duration::from_secs_f64(1. / fps),
+        };
+        self.frame_time(duration)
     }
 
     pub fn frame(&mut self) -> Duration {
