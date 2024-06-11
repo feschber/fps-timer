@@ -17,7 +17,8 @@ fn main() {
         .unwrap_or(420.69);
 
     let mut timer = Timer::default()
-        .log_interval(Duration::from_millis(10))
+        .log_interval(Duration::from_millis(100))
+        .high_precision(true)
         .fps(fps);
 
     loop {

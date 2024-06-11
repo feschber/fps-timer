@@ -23,6 +23,8 @@ pub struct Timer {
     framecount: u64,
     /// maximum amount of frames to lag behind
     max_delay_frames: u32,
+    /// improved_accuracy
+    high_precision: bool,
 }
 
 /// since thread::sleep usually is not accurate down to the millisecond, we
@@ -30,7 +32,7 @@ pub struct Timer {
 /// and spin in a loop for the rest of the time
 ///
 /// returns the last measured timestamp
-fn sleep_until(target: Instant) -> Instant {
+fn sleep_until_high_precision(target: Instant) -> Instant {
     // calculate approximate duration until target time
     let now = Instant::now();
 
@@ -43,12 +45,32 @@ fn sleep_until(target: Instant) -> Instant {
     let approx_duration = target.duration_since(now);
 
     // sleep for a maximum of 1ms less than the approximate required delay
-    const MILLISECOND: Duration = Duration::from_millis(1);
-    if approx_duration > MILLISECOND {
-        let suspend_duration = approx_duration - MILLISECOND;
-        thread::sleep(suspend_duration);
+    #[cfg(unix)]
+    const MAX_BUSY_WAIT: Duration = Duration::from_micros(250);
+    #[cfg(not(unix))]
+    const MAX_BUSY_WAIT: Duration = Duration::from_millis(1);
+    if approx_duration > MAX_BUSY_WAIT {
+        thread::sleep(approx_duration - MAX_BUSY_WAIT);
     }
 
+    busy_wait_until(target)
+}
+
+fn sleep_until(target: Instant) -> Instant {
+    // calculate approximate duration until target time
+    let now = Instant::now();
+
+    // early out to avoid additional measurement
+    if now >= target {
+        return now;
+    }
+
+    let suspend_duration = target - now;
+    thread::sleep(suspend_duration);
+    busy_wait_until(target)
+}
+
+fn busy_wait_until(target: Instant) -> Instant {
     // spin until target time is reached and return it
     loop {
         let time = Instant::now();
@@ -99,6 +121,7 @@ impl Default for Timer {
             log_target: now + log_interval,
             delta_time,
             max_delay_frames: 2,
+            high_precision: true,
         }
     }
 }
@@ -169,6 +192,31 @@ impl Timer {
         self.frame_time(duration)
     }
 
+    /// Enable or disable improved accuracy for this timer.
+    ///
+    /// Enabling high precision makes the timer more precise
+    /// at the cost of higher power consumption because
+    /// part of the duration is awaited in a busy spinloop.
+    ///
+    /// Defaults to `true`
+    ///
+    /// # Arguments
+    /// * `enable` - whether or not to enable higher precision
+    ///
+    /// # Returns
+    /// [`Self`] the (modified) timer
+    ///
+    /// # Example
+    /// ```rust
+    /// use fps_timer::Timer;
+    /// let mut timer = Timer::default()
+    ///     .fps(60.);
+    /// ```
+    pub fn high_precision(mut self, enabled: bool) -> Self {
+        self.high_precision = enabled;
+        self
+    }
+
     /// Waits until the specified frametime target is reached
     /// and returns the [`Duration`] since the last call
     /// to [`Self::frame()`] of this [`Timer`] (= frametime).
@@ -217,7 +265,11 @@ impl Timer {
 
             // wait until target instant if needed
             if current < self.target {
-                current = sleep_until(self.target);
+                current = if self.high_precision {
+                    sleep_until_high_precision(self.target)
+                } else {
+                    sleep_until(self.target)
+                };
             }
 
             // update target time
