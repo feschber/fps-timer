@@ -90,7 +90,7 @@ impl Timer {
         self
     }
 
-    pub fn frame_time(mut self: Self, delta: Duration) -> Self {
+    pub fn frame_time(mut self, delta: Duration) -> Self {
         self.delta_time = delta;
         self
     }
@@ -134,7 +134,7 @@ impl Timer {
         let delta_avg = current.duration_since(self.previous_log) / frames;
 
         // set time of current and next log (current time + log interval)
-        self.log_target = self.log_target + self.log_interval;
+        self.log_target += self.log_interval;
         self.previous_log = current;
         self.prev_framecount = self.framecount;
 
